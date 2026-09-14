@@ -1,3 +1,9 @@
 module github.com/thecguygithub/vtsgo
 
 go 1.27.1
+
+require (
+	github.com/coder/websocket v1.8.15 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
+)
