@@ -14,17 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// RawEnvelope allows extracting metadata (like requestId and messageType)
-// without breaking when VTS sends non-standard or error payloads.
-type RawEnvelope struct {
-	APIName     string          `json:"apiName"`
-	APIVersion  string          `json:"apiVersion"`
-	Timestamp   int64           `json:"timestamp"`
-	MessageType string          `json:"messageType"`
-	RequestID   string          `json:"requestID"`
-	Data        json.RawMessage `json:"data"`
-}
-
 type VTSGo struct {
 	websocketConn *websocket.Conn
 	tokenPath     string
@@ -73,7 +62,6 @@ func (c *VTSGo) readLoop() {
 			continue
 		}
 
-		// Dispatch raw message byte slice based on requestID
 		c.mu.Lock()
 		ch, exists := c.pending[env.RequestID]
 		if exists {
@@ -272,4 +260,213 @@ func (c *VTSGo) Authenticate(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetCurrentModel(ctx context.Context) (*CurrentModelResponse, error) {
+	var resp CurrentModelResponse
+	err := c.Request(ctx, "CurrentModelRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetAvailableModels(ctx context.Context) (*AvailableModelsResponse, error) {
+	var resp AvailableModelsResponse
+	err := c.Request(ctx, "AvailableModelsRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) LoadModel(ctx context.Context, req ModelLoadRequest) (*ModelLoadResponse, error) {
+	var resp ModelLoadResponse
+	err := c.Request(ctx, "ModelLoadRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) MoveModel(ctx context.Context, req MoveModelRequest) error {
+	return c.Request(ctx, "MoveModelRequest", req, nil)
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetHotkeys(ctx context.Context, req HotkeysInCurrentModelRequest) (*HotkeysInCurrentModelResponse, error) {
+	var resp HotkeysInCurrentModelResponse
+	err := c.Request(ctx, "HotkeysInCurrentModelRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) TriggerHotkey(ctx context.Context, hotkeyID string) (*HotkeyTriggerResponse, error) {
+	var resp HotkeyTriggerResponse
+	req := HotkeyTriggerRequest{HotkeyID: hotkeyID}
+	err := c.Request(ctx, "HotkeyTriggerRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetExpressionState(ctx context.Context, req ExpressionStateRequest) (*ExpressionStateResponse, error) {
+	var resp ExpressionStateResponse
+	err := c.Request(ctx, "ExpressionStateRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) SetExpressionState(ctx context.Context, req ExpressionActivationRequest) error {
+	return c.Request(ctx, "ExpressionActivationRequest", req, nil)
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetArtMeshList(ctx context.Context) (*ArtMeshListResponse, error) {
+	var resp ArtMeshListResponse
+	err := c.Request(ctx, "ArtMeshListRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetArtMeshesAtPosition(ctx context.Context, req ArtMeshAtPositionRequest) (*ArtMeshAtPositionResponse, error) {
+	var resp ArtMeshAtPositionResponse
+	err := c.Request(ctx, "ArtMeshAtPositionRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) SetColorTint(ctx context.Context, req ColorTintRequest) (*ColorTintResponse, error) {
+	var resp ColorTintResponse
+	err := c.Request(ctx, "ColorTintRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) RequestArtMeshSelection(ctx context.Context, req ArtMeshSelectionRequest) (*ArtMeshSelectionResponse, error) {
+	var resp ArtMeshSelectionResponse
+	err := c.Request(ctx, "ArtMeshSelectionRequest", req, &resp)
+	return &resp, err
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetInputParameterList(ctx context.Context) (*InputParameterListResponse, error) {
+	var resp InputParameterListResponse
+	err := c.Request(ctx, "InputParameterListRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetLive2DParameterList(ctx context.Context) (*Live2DParameterListResponse, error) {
+	var resp Live2DParameterListResponse
+	err := c.Request(ctx, "Live2DParameterListRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetParameterValue(ctx context.Context, name string) (*ParameterValueResponse, error) {
+	var resp ParameterValueResponse
+	req := ParameterValueRequest{Name: name}
+	err := c.Request(ctx, "ParameterValueRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) CreateCustomParameter(ctx context.Context, req ParameterCreationRequest) (*ParameterCreationResponse, error) {
+	var resp ParameterCreationResponse
+	err := c.Request(ctx, "ParameterCreationRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) DeleteCustomParameter(ctx context.Context, name string) (*ParameterDeletionResponse, error) {
+	var resp ParameterDeletionResponse
+	req := ParameterDeletionRequest{ParameterName: name}
+	err := c.Request(ctx, "ParameterDeletionRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) InjectParameterData(ctx context.Context, req InjectParameterDataRequest) error {
+	return c.Request(ctx, "InjectParameterDataRequest", req, nil)
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetCurrentModelPhysics(ctx context.Context) (*GetCurrentModelPhysicsResponse, error) {
+	var resp GetCurrentModelPhysicsResponse
+	err := c.Request(ctx, "GetCurrentModelPhysicsRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) SetCurrentModelPhysics(ctx context.Context, req SetCurrentModelPhysicsRequest) error {
+	return c.Request(ctx, "SetCurrentModelPhysicsRequest", req, nil)
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetItemList(ctx context.Context, req ItemListRequest) (*ItemListResponse, error) {
+	var resp ItemListResponse
+	err := c.Request(ctx, "ItemListRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) LoadItem(ctx context.Context, req ItemLoadRequest) (*ItemLoadResponse, error) {
+	var resp ItemLoadResponse
+	err := c.Request(ctx, "ItemLoadRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) UnloadItem(ctx context.Context, req ItemUnloadRequest) (*ItemUnloadResponse, error) {
+	var resp ItemUnloadResponse
+	err := c.Request(ctx, "ItemUnloadRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) MoveItem(ctx context.Context, req ItemMoveRequest) (*ItemMoveResponse, error) {
+	var resp ItemMoveResponse
+	err := c.Request(ctx, "ItemMoveRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) ControlItemAnimation(ctx context.Context, req ItemAnimationControlRequest) (*ItemAnimationControlResponse, error) {
+	var resp ItemAnimationControlResponse
+	err := c.Request(ctx, "ItemAnimationControlRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) SortItem(ctx context.Context, req ItemSortRequest) (*ItemSortResponse, error) {
+	var resp ItemSortResponse
+	err := c.Request(ctx, "ItemSortRequest", req, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) PinItem(ctx context.Context, req ItemPinRequest) (*ItemPinResponse, error) {
+	var resp ItemPinResponse
+	err := c.Request(ctx, "ItemPinRequest", req, &resp)
+	return &resp, err
+}
+
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------------------------
+
+func (c *VTSGo) GetStatistics(ctx context.Context) (*StatisticsResponse, error) {
+	var resp StatisticsResponse
+	err := c.Request(ctx, "StatisticsRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetVTSFolderInfo(ctx context.Context) (*VTSFolderInfoResponse, error) {
+	var resp VTSFolderInfoResponse
+	err := c.Request(ctx, "VTSFolderInfoRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) GetSceneColorOverlayInfo(ctx context.Context) (*SceneColorOverlayInfoResponse, error) {
+	var resp SceneColorOverlayInfoResponse
+	err := c.Request(ctx, "SceneColorOverlayInfoRequest", nil, &resp)
+	return &resp, err
+}
+
+func (c *VTSGo) CheckFaceFound(ctx context.Context) (*FaceFoundResponse, error) {
+	var resp FaceFoundResponse
+	err := c.Request(ctx, "FaceFoundRequest", nil, &resp)
+	return &resp, err
 }

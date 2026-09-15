@@ -5,6 +5,15 @@ import (
 	"fmt"
 )
 
+type RawEnvelope struct {
+	APIName     string          `json:"apiName"`
+	APIVersion  string          `json:"apiVersion"`
+	Timestamp   int64           `json:"timestamp"`
+	MessageType string          `json:"messageType"`
+	RequestID   string          `json:"requestID"`
+	Data        json.RawMessage `json:"data"`
+}
+
 type BaseMessage struct {
 	APIName     string          `json:"apiName"`    // "VTubeStudioPublicAPI"
 	APIVersion  string          `json:"apiVersion"` // "1.0"
