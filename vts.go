@@ -14,10 +14,15 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var ErrDisconnected = errors.New("vts: connection closed")
+
 type VTSGo struct {
 	websocketConn *websocket.Conn
 	tokenPath     string
 	pluginInfo    *PluginInfo
+
+	done    chan struct{} // closed when the read loop exits
+	writeMu sync.Mutex    // serializes writes to the socket
 
 	mu      sync.RWMutex
 	pending map[string]chan []byte // maps requestID to raw JSON response bytes
@@ -41,21 +46,24 @@ func (c *VTSGo) Connect(ctx context.Context, addr string) error {
 		return fmt.Errorf("vts connect error: %w", err)
 	}
 	c.websocketConn = conn
+	c.done = make(chan struct{})
 
-	go c.readLoop()
+	go c.readLoop(conn, c.done)
 	return nil
 }
 
-func (c *VTSGo) readLoop() {
-	defer c.websocketConn.Close()
+func (c *VTSGo) readLoop(conn *websocket.Conn, done chan struct{}) {
+	defer func() {
+		_ = conn.Close()
+		c.failPending() // wake up everyone waiting for a response
+		close(done)
+	}()
 
 	for {
-		_, rawMsg, err := c.websocketConn.ReadMessage()
+		_, rawMsg, err := conn.ReadMessage()
 		if err != nil {
 			return
 		}
-
-		//log.Printf("DEBUG: %v", string(rawMsg))
 
 		var env RawEnvelope
 		if err := json.Unmarshal(rawMsg, &env); err != nil {
@@ -70,7 +78,7 @@ func (c *VTSGo) readLoop() {
 		c.mu.Unlock()
 
 		if exists && ch != nil {
-			ch <- rawMsg
+			ch <- rawMsg // buffered (size 1), never blocks
 		}
 	}
 }
@@ -126,6 +134,15 @@ func (c *VTSGo) RequestRaw(ctx context.Context, reqID string, payload any, respo
 	if c.pending == nil {
 		return errors.New("client pending map is uninitialized")
 	}
+	if c.websocketConn == nil {
+		return errors.New("vts: not connected")
+	}
+
+	select {
+	case <-c.done:
+		return ErrDisconnected
+	default:
+	}
 
 	resChan := make(chan []byte, 1)
 
@@ -133,11 +150,14 @@ func (c *VTSGo) RequestRaw(ctx context.Context, reqID string, payload any, respo
 	c.pending[reqID] = resChan
 	c.mu.Unlock()
 
-	if err := c.websocketConn.WriteJSON(payload); err != nil {
+	c.writeMu.Lock()
+	err := c.websocketConn.WriteJSON(payload)
+	c.writeMu.Unlock()
+	if err != nil {
 		c.mu.Lock()
 		delete(c.pending, reqID)
 		c.mu.Unlock()
-		return err
+		return fmt.Errorf("%w: %v", ErrDisconnected, err)
 	}
 
 	select {
@@ -146,13 +166,36 @@ func (c *VTSGo) RequestRaw(ctx context.Context, reqID string, payload any, respo
 		delete(c.pending, reqID)
 		c.mu.Unlock()
 		return ctx.Err()
-	case rawResp := <-resChan:
+	case rawResp, ok := <-resChan:
+		if !ok { // channel closed by failPending
+			return ErrDisconnected
+		}
 		if responseData != nil {
 			// Unmarshal raw WS response directly into target struct
 			return json.Unmarshal(rawResp, responseData)
 		}
 		return nil
 	}
+}
+
+func (c *VTSGo) failPending() {
+	c.mu.Lock()
+	for id, ch := range c.pending {
+		close(ch)
+		delete(c.pending, id)
+	}
+	c.mu.Unlock()
+}
+
+// Done is closed when the connection is gone (remote close, network error, or Close()).
+func (c *VTSGo) Done() <-chan struct{} { return c.done }
+
+// Close closes the socket. Safe to call more than once.
+func (c *VTSGo) Close() error {
+	if c.websocketConn == nil {
+		return nil
+	}
+	return c.websocketConn.Close()
 }
 
 func (c *VTSGo) GetSessionStatus(ctx context.Context) (*SessionStatusResponse, error) {
